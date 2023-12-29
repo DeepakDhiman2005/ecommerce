@@ -51,12 +51,12 @@ app.post("/register", upload.single("file"), (req, res)=>{
 });
 
 app.get("/products", (req, res)=>{
-    const data = fs.readdirSync(Dirname+'/products');
+    const data = fs.readdirSync(Dirname+'/Products');
     // console.log(data);
     const json_array = [];
 
     data.forEach((value)=>{
-        const content = fs.readFileSync(Dirname+'/products/'+value, "utf-8");
+        const content = fs.readFileSync(Dirname+'/Products/'+value, "utf-8");
         // console.log(content);
         json_array.push(JSON.parse(content));
     });
