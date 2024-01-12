@@ -7,6 +7,8 @@ import mongoose from "mongoose";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import bcrypt from "bcryptjs";
+// import jwt from "jsonwebtoken";
 
 const app = express();
 const server = http.createServer(app);
@@ -30,39 +32,107 @@ const Database_Url = "mongodb+srv://ProgrammerD:deepak8339@cluster0.tnmxvha.mong
 mongoose.connect(Database_Url);
 
 const contactSchema = new mongoose.Schema({
+    username: String,
+    gmail: String,
+    message: String
+});
+
+const registerSchema = new mongoose.Schema({
     email: String,
     password: String,
     name: String,
-    phone: String,
+    phoneno: Number,
     company: String
-});
+})
 
-const connect = mongoose.model("contacts", contactSchema);
+const ConnectContact = mongoose.model("contacts", contactSchema);
+const ConnectRegister = mongoose.model("registers", registerSchema);
 
 app.get("/", (req, res)=>{res.send({message: "Hello world!"})});
 
 const upload = multer({ dest: undefined });
 
-app.post("/register", upload.single("file"), (req, res)=>{
+// --------------------------------------- middleware ------------------------------------------
+const LoginMeddleWare = async (req, res, next) => {
+    // console.log("call in middleware...");
     // console.log(req.body);
-    const contact = new connect(req.body);
-    const data = contact.save();
-    // console.log(data); // promise return
 
-    res.send({ message: "Data Submit Successfully!" });
+    // console.log(password); 
+    const data = await ConnectRegister.findOne({email: req.body.email});
+    // console.log(data)
+
+    if(data){
+        let cpassword = await bcrypt.compare(req.body.password, data.password);
+        // console.log(cpassword)
+        if(cpassword){
+            next();
+        }
+    }
+    // next();
+}
+
+// ---------------------------------- get and post methods ---------------------------------------
+// Register
+app.post("/register", upload.single("file"), async (req, res)=>{
+    // console.log(req.body);
+    let { email, password, name, phone, company } = req.body;
+    // console.log(email, password, name, phone, company);
+
+    let message = "";
+
+    const data = await ConnectRegister.findOne({email: email, phoneno: phone});
+    // console.log(data);
+    if(data){
+        message = true;
+    }else{
+        let hash_password = await bcrypt.hash(password, 12);
+
+        const register = new ConnectRegister({
+            email: email,
+            password: hash_password,
+            name: name,
+            phoneno: phone,
+            company: company
+        });
+        const data = await register.save();
+        // console.log(data); // promise return
+        message = true;
+    }
+
+    res.send({ message: message });
+});
+
+// Login
+app.post("/login", LoginMeddleWare, async (req, res)=>{
+    // console.log(req.body);
+    const data = await ConnectRegister.findOne({email: req.body.email});
+    const {email, name, phoneno, company} = data;
+
+    res.send({email: email, name: name, phoneno: phoneno, company: company});
+})
+
+// Products
+const data = fs.readdirSync(Dirname+'/Products');
+// console.log(data);
+const json_array = [];
+
+data.forEach((value)=>{
+    const content = fs.readFileSync(Dirname+'/Products/'+value, "utf-8");
+    // console.log(content);
+    json_array.push(JSON.parse(content));
 });
 
 app.get("/products", (req, res)=>{
-    const data = fs.readdirSync(Dirname+'/Products');
-    // console.log(data);
-    const json_array = [];
-
-    data.forEach((value)=>{
-        const content = fs.readFileSync(Dirname+'/Products/'+value, "utf-8");
-        // console.log(content);
-        json_array.push(JSON.parse(content));
-    });
     res.send(json_array);
 });
 
+// Contact
+app.post("/contact", upload.single('file'), (req, res)=>{
+    // console.log(req.body);
+    const contact = new ConnectContact(req.body);
+    contact.save();
+    res.send({message: "contact us successfully!"})
+})
+
+// ----------------------------------- Server Listen ----------------------------
 server.listen(port, ()=>console.log("Server running..."));
